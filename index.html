@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Homeschool Math Worksheet Generator</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@400;500;600&family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body, #root { height: 100%; }
+    body { font-family: 'DM Sans', sans-serif; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+    const { useState, useCallback } = React;
+
+    const GRADE_STANDARDS = {
+      "K": { label: "Kindergarten", color: "#ff6b6b", standards: [
+        { id: "K.OA.1", label: "Addition within 10", type: "addition", lo: 0, hi: 5, maxSum: 10 },
+        { id: "K.OA.2", label: "Subtraction within 10", type: "subtraction", lo: 0, hi: 10 },
+        { id: "K.NBT.1", label: "Compose numbers 11–19", type: "compose", lo: 11, hi: 19 },
+      ]},
+      "1": { label: "1st Grade", color: "#ff9f43", standards: [
+        { id: "1.OA.6", label: "Addition within 20", type: "addition", lo: 1, hi: 10, maxSum: 20 },
+        { id: "1.OA.6b", label: "Subtraction within 20", type: "subtraction", lo: 1, hi: 20 },
+        { id: "1.NBT.4", label: "2-digit + 1-digit", type: "addition", lo: 10, hi: 50, lo2: 1, hi2: 9 },
+      ]},
+      "2": { label: "2nd Grade", color: "#feca57", standards: [
+        { id: "2.OA.2", label: "Add within 100", type: "addition", lo: 10, hi: 90 },
+        { id: "2.OA.2b", label: "Subtract within 100", type: "subtraction", lo: 10, hi: 100 },
+        { id: "2.NBT.5", label: "2-digit addition w/ regrouping", type: "addition", lo: 20, hi: 99 },
+        { id: "2.NBT.5b", label: "2-digit subtraction w/ regrouping", type: "subtraction", lo: 20, hi: 99 },
+      ]},
+      "3": { label: "3rd Grade", color: "#48dbfb", standards: [
+        { id: "3.OA.1", label: "Multiplication 0–10", type: "multiplication", lo: 0, hi: 10 },
+        { id: "3.OA.2", label: "Division ÷1–10", type: "division", lo: 1, hi: 10 },
+        { id: "3.NBT.2", label: "Add/subtract within 1000", type: "addition", lo: 100, hi: 999 },
+        { id: "3.NF.1", label: "Unit fractions (add)", type: "fraction-add", lo: 2, hi: 8 },
+      ]},
+      "4": { label: "4th Grade", color: "#1dd1a1", standards: [
+        { id: "4.OA.4", label: "Multi-digit multiplication", type: "multiplication", lo: 10, hi: 99 },
+        { id: "4.NBT.4", label: "Add/subtract within 1,000,000", type: "addition", lo: 1000, hi: 9999 },
+        { id: "4.NF.3", label: "Fraction add (like denom.)", type: "fraction-add", lo: 2, hi: 12 },
+        { id: "4.NF.4", label: "Fraction multiplication", type: "fraction-mul", lo: 2, hi: 10 },
+        { id: "4.NF.6", label: "Decimal addition (tenths)", type: "decimal-add", dp: 1 },
+      ]},
+      "5": { label: "5th Grade", color: "#54a0ff", standards: [
+        { id: "5.NBT.7", label: "Decimal addition (hundredths)", type: "decimal-add", dp: 2 },
+        { id: "5.NBT.7b", label: "Decimal subtraction", type: "decimal-sub", dp: 2 },
+        { id: "5.NF.1", label: "Fraction add (unlike denom.)", type: "fraction-add", lo: 2, hi: 12 },
+        { id: "5.NF.3", label: "Fraction division", type: "fraction-div", lo: 2, hi: 10 },
+        { id: "5.NBT.5", label: "Multi-digit multiplication", type: "multiplication", lo: 100, hi: 999 },
+      ]},
+      "6": { label: "6th Grade", color: "#a29bfe", standards: [
+        { id: "6.NS.1", label: "Fraction division", type: "fraction-div", lo: 2, hi: 15 },
+        { id: "6.NS.3", label: "Decimal multiplication", type: "decimal-mul", dp: 2 },
+        { id: "6.EE.1", label: "Evaluate powers", type: "power", lo: 2, hi: 6 },
+        { id: "6.RP.1", label: "Ratio problems", type: "ratio", lo: 1, hi: 12 },
+      ]},
+      "7": { label: "7th Grade", color: "#fd79a8", standards: [
+        { id: "7.NS.1", label: "Add/subtract integers", type: "integer-add", lo: -20, hi: 20 },
+        { id: "7.NS.2", label: "Multiply/divide integers", type: "integer-mul", lo: -12, hi: 12 },
+        { id: "7.EE.1", label: "Simplify like terms", type: "like-terms", lo: 1, hi: 9 },
+        { id: "7.RP.2", label: "Proportional relationships", type: "proportion", lo: 1, hi: 15 },
+      ]},
+      "8": { label: "8th Grade", color: "#6c5ce7", standards: [
+        { id: "8.EE.1", label: "Integer exponents", type: "power", lo: 2, hi: 10 },
+        { id: "8.EE.7", label: "One-variable equations", type: "equation", lo: 1, hi: 20 },
+        { id: "8.NS.1", label: "Rational vs irrational", type: "classify" },
+        { id: "8.F.1", label: "Evaluate functions f(x)", type: "function", lo: 1, hi: 10 },
+      ]},
+    };
+
+    function ri(lo, hi) { return Math.floor(Math.random() * (hi - lo + 1)) + lo; }
+    function gcd(a, b) { return b === 0 ? Math.abs(a) : gcd(b, a % b); }
+
+    function genProblem(std) {
+      const { type } = std;
+      if (type === "addition") {
+        const lo2 = std.lo2 ?? std.lo, hi2 = std.hi2 ?? std.hi;
+        let a = ri(std.lo, std.hi), b = ri(lo2, hi2);
+        if (std.maxSum) { let t = 0; while (a + b > std.maxSum && t++ < 20) { a = ri(std.lo, std.hi); b = ri(lo2, hi2); } }
+        return { q: [a, "+", b], ansStr: `${a + b}` };
+      }
+      if (type === "subtraction") {
+        let a = ri(std.lo, std.hi), b = ri(std.lo, std.hi);
+        if (a < b) [a, b] = [b, a];
+        return { q: [a, "−", b], ansStr: `${a - b}` };
+      }
+      if (type === "multiplication") {
+        const a = ri(std.lo, std.hi), b = ri(Math.max(std.lo, 2), std.hi);
+        return { q: [a, "×", b], ansStr: `${a * b}` };
+      }
+      if (type === "division") {
+        const b = ri(1, std.hi), a = b * ri(1, 12);
+        return { q: [a, "÷", b], ansStr: `${a / b}` };
+      }
+      if (type === "fraction-add" || type === "fraction-sub") {
+        let d1 = ri(std.lo, std.hi), d2 = ri(std.lo, std.hi);
+        let n1 = ri(1, d1 - 1), n2 = ri(1, d2 - 1);
+        const lcm = (d1 * d2) / gcd(d1, d2);
+        const nn1 = n1 * (lcm / d1), nn2 = n2 * (lcm / d2);
+        if (type === "fraction-sub" && nn1 < nn2) [n1, d1, n2, d2] = [n2, d2, n1, d1];
+        const rn = type === "fraction-add" ? nn1 + nn2 : Math.abs(nn1 - nn2);
+        const g = gcd(rn, lcm);
+        return { q: [`${n1}/${d1}`, type === "fraction-add" ? "+" : "−", `${n2}/${d2}`], ansStr: `${rn/g}/${lcm/g}` };
+      }
+      if (type === "fraction-mul") {
+        const d1 = ri(std.lo, std.hi), d2 = ri(std.lo, std.hi);
+        const n1 = ri(1, d1-1), n2 = ri(1, d2-1);
+        const rn = n1*n2, rd = d1*d2, g = gcd(rn,rd);
+        return { q: [`${n1}/${d1}`, "×", `${n2}/${d2}`], ansStr: `${rn/g}/${rd/g}` };
+      }
+      if (type === "fraction-div") {
+        const d1 = ri(std.lo, std.hi), d2 = ri(std.lo, std.hi);
+        const n1 = ri(1, d1-1), n2 = ri(1, d2-1);
+        const rn = n1*d2, rd = d1*n2, g = gcd(rn,rd);
+        return { q: [`${n1}/${d1}`, "÷", `${n2}/${d2}`], ansStr: `${rn/g}/${rd/g}` };
+      }
+      if (type === "decimal-add" || type === "decimal-sub") {
+        const dp = std.dp ?? 2, f = Math.pow(10, dp);
+        let a = parseFloat((ri(1, 99*f)/f).toFixed(dp));
+        let b = parseFloat((ri(1, 50*f)/f).toFixed(dp));
+        if (type === "decimal-sub" && a < b) [a, b] = [b, a];
+        const op = type === "decimal-add" ? "+" : "−";
+        return { q: [String(a), op, String(b)], ansStr: parseFloat((type==="decimal-add"?a+b:a-b).toFixed(dp+1)).toString() };
+      }
+      if (type === "decimal-mul") {
+        const dp = std.dp ?? 2, f = Math.pow(10, dp);
+        const a = parseFloat((ri(1,9*f)/f).toFixed(dp)), b = parseFloat((ri(1,5*f)/f).toFixed(dp));
+        return { q: [String(a), "×", String(b)], ansStr: parseFloat((a*b).toFixed(dp*2)).toString() };
+      }
+      if (type === "power") {
+        const base = ri(2, std.hi), exp = ri(2, 4);
+        return { q: [String(base), "^", String(exp)], ansStr: `${Math.pow(base,exp)}` };
+      }
+      if (type === "integer-add") {
+        const a = ri(std.lo, std.hi), b = ri(std.lo, std.hi);
+        return { q: [String(a), b>=0?"+":"−", String(Math.abs(b))], ansStr: String(a+b) };
+      }
+      if (type === "integer-mul") {
+        const a = ri(std.lo, std.hi), b = ri(std.lo, std.hi);
+        return { q: [String(a), "×", String(b)], ansStr: String(a*b) };
+      }
+      if (type === "equation") {
+        const x = ri(1, std.hi), a = ri(1,10), b = ri(0,20);
+        return { q: [`${a}x + ${b}`, "=", `${a*x+b}`], ansStr: `x = ${x}`, isEquation: true };
+      }
+      if (type === "function") {
+        const a = ri(1,std.hi), b = ri(0,10), xv = ri(1,8);
+        return { q: [`f(x)=${a}x+${b}`, ",", `f(${xv})=?`], ansStr: `${a*xv+b}` };
+      }
+      if (type === "ratio") {
+        const a = ri(1,std.hi), b = ri(1,std.hi), k = ri(2,6);
+        return { q: [`${a}:${b}`, "=", `${a*k}:?`], ansStr: `${b*k}` };
+      }
+      if (type === "proportion") {
+        const a = ri(1,std.hi), b = ri(1,std.hi), k = ri(2,5);
+        return { q: [`${a}/${b}`, "=", `?/${b*k}`], ansStr: `${a*k}` };
+      }
+      if (type === "compose") {
+        const n = ri(11,19);
+        return { q: [String(n), "=", "10 + ?"], ansStr: `${n-10}` };
+      }
+      if (type === "like-terms") {
+        const a=ri(1,std.hi),b=ri(1,std.hi),c=ri(1,std.hi),d=ri(1,std.hi);
+        return { q: [`${a}x + ${c}`, "+", `${b}x + ${d}`], ansStr: `${a+b}x + ${c+d}` };
+      }
+      if (type === "classify") {
+        const opts = [[4,"rational"],[9,"rational"],[2,"irrational"],[3,"irrational"],[0.5,"rational"],[1.414,"irrational"],[25,"rational"]];
+        const p = opts[ri(0,opts.length-1)];
+        return { q: [String(p[0]), "→", "rational or irrational?"], ansStr: p[1] };
+      }
+      return { q: ["?","+","?"], ansStr: "?" };
+    }
+
+    function parseCustomProblem(str) {
+      str = str.trim();
+      const match = str.match(/^(.+?)\s*([\+\-×\*÷\/])\s*(.+?)\s*=\s*(.+)$/);
+      if (match) {
+        const opMap = {"+":"+","-":"−","×":"×","*":"×","÷":"÷","/":"÷"};
+        return { q: [match[1].trim(), opMap[match[2]]||match[2], match[3].trim()], ansStr: match[4].trim(), isCustom: true };
+      }
+      return { q: [str,"=","?"], ansStr: "?", isCustom: true };
+    }
+
+    function printSheet({ problems, studentName, date, grade, selectedStds, layout, includeAnswerKey }) {
+      const gradeInfo = GRADE_STANDARDS[grade];
+      const formattedDate = date ? new Date(date+"T12:00:00").toLocaleDateString("en-US",{year:"numeric",month:"long",day:"numeric"}) : "";
+      const isVert = layout === "vertical";
+      const cols = isVert ? 4 : 2;
+      const stdList = selectedStds.map(s=>`${s.id}: ${s.label}`).join(" · ");
+      const probHTML = problems.map((p,i)=>{
+        const [a,op,b] = p.q;
+        let inner = "";
+        if (isVert && !p.isEquation && !p.isCustom) {
+          const maxLen = Math.max(String(a).length, String(b).length);
+          const pa = String(a).padStart(maxLen+2);
+          const pb = op+" "+String(b).padStart(maxLen);
+          const line = "─".repeat(maxLen+3);
+          inner = `<pre style="font-family:'Courier New',monospace;font-size:18px;line-height:1.6">${pa}\n${pb}\n${line}</pre>`;
+        } else {
+          inner = `<span style="font-family:'Courier New',monospace;font-size:17px">${a} ${op} ${b} = ____</span>`;
+        }
+        return `<div class="prob"><span class="pnum">${i+1}.</span>${inner}</div>`;
+      }).join("");
+      const keyHTML = problems.map((p,i)=>
+        `<div class="ans"><strong>${i+1}.</strong> <span style="font-family:'Courier New',monospace">${p.q[0]} ${p.q[1]} ${p.q[2]} = <em>${p.ansStr}</em></span></div>`
+      ).join("");
+      const win = window.open("","_blank");
+      if (!win) { alert("Please allow popups to print/save PDF."); return; }
+      win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Math Worksheet</title>
+        <style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Georgia,serif;padding:36px 48px;color:#111}
+        .header{display:flex;justify-content:space-between;padding-bottom:12px;border-bottom:3px solid #111;margin-bottom:24px}
+        .grade-pill{background:${gradeInfo.color};color:#fff;border-radius:20px;padding:2px 12px;font-size:11px;font-weight:700;text-transform:uppercase;display:inline-block;margin-bottom:5px}
+        .title{font-size:26px;font-weight:700}.stds{font-size:10px;color:#888;margin-top:5px}
+        .meta{text-align:right;display:flex;flex-direction:column;gap:9px}
+        .ml{font-size:12px;display:flex;align-items:center;gap:8px;justify-content:flex-end}
+        .mk{font-size:9px;text-transform:uppercase;letter-spacing:1px;color:#aaa}
+        .mv{border-bottom:1.5px solid #ccc;min-width:130px}
+        .grid{display:grid;grid-template-columns:repeat(${cols},1fr);gap:${isVert?"28px 20px":"12px 48px"}}
+        .prob{padding:${isVert?"12px 6px":"10px 0"};border-bottom:1px dashed #ddd;display:flex;align-items:flex-start;gap:7px}
+        .pnum{font-size:10px;color:#bbb;min-width:18px;padding-top:3px}
+        .ans-header{margin-top:44px;border-top:2.5px solid #111;padding-top:14px;margin-bottom:18px;display:flex;align-items:center;gap:12px}
+        .ans-badge{background:#111;color:#fff;font-size:9px;padding:3px 10px;letter-spacing:1.5px;text-transform:uppercase}
+        .ans-title{font-size:20px;font-weight:700}.ans-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px 40px}
+        .ans{font-size:13px;padding:5px 0;color:#1a6641;border-bottom:1px dotted #ddd}
+        @media print{body{padding:18px 28px}}</style></head><body>
+        <div class="header"><div><div class="grade-pill">Grade ${grade} — ${gradeInfo.label}</div>
+        <div class="title">Math Worksheet</div><div class="stds">${stdList}</div></div>
+        <div class="meta">
+          <div class="ml"><span class="mk">Name</span><span class="mv">${studentName||""}</span></div>
+          <div class="ml"><span class="mk">Date</span><span class="mv">${formattedDate}</span></div>
+          <div class="ml"><span class="mk">Score</span><span class="mv"></span></div>
+        </div></div>
+        <div class="grid">${probHTML}</div>
+        ${includeAnswerKey?`<div class="ans-header"><span class="ans-badge">ANSWER KEY</span><span class="ans-title">Solutions</span></div><div class="ans-grid">${keyHTML}</div>`:""}
+        <script>window.onload=()=>{window.print();}<\/script></body></html>`);
+      win.document.close();
+    }
+
+    function App() {
+      const [grade, setGrade] = useState("3");
+      const [selectedStdIds, setSelectedStdIds] = useState(["3.OA.1"]);
+      const [numProblems, setNumProblems] = useState(20);
+      const [layout, setLayout] = useState("horizontal");
+      const [studentName, setStudentName] = useState("");
+      const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
+      const [includeAnswerKey, setIncludeAnswerKey] = useState(true);
+      const [customInput, setCustomInput] = useState("");
+      const [customProblems, setCustomProblems] = useState([]);
+      const [problems, setProblems] = useState(null);
+      const [activeTab, setActiveTab] = useState("worksheet");
+
+      const gradeInfo = GRADE_STANDARDS[grade];
+      const selectedStds = gradeInfo.standards.filter(s => selectedStdIds.includes(s.id));
+
+      const handleGradeChange = (g) => { setGrade(g); setSelectedStdIds([GRADE_STANDARDS[g].standards[0].id]); setProblems(null); };
+      const toggleStd = (id) => setSelectedStdIds(prev => prev.includes(id) ? (prev.length>1?prev.filter(x=>x!==id):prev) : [...prev,id]);
+      const addCustomProblems = () => { if (!customInput.trim()) return; setCustomProblems(prev=>[...prev,...customInput.split("\n").map(l=>l.trim()).filter(Boolean).map(parseCustomProblem)]); setCustomInput(""); };
+      const removeCustom = (i) => setCustomProblems(prev=>prev.filter((_,idx)=>idx!==i));
+
+      const generate = useCallback(() => {
+        if (!selectedStds.length && !customProblems.length) return;
+        const list = [];
+        const stdSlots = Math.max(0, numProblems - Math.min(customProblems.length, numProblems));
+        for (let i = 0; i < stdSlots; i++) list.push(genProblem(selectedStds[i % selectedStds.length]));
+        customProblems.slice(0, numProblems).forEach(cp => list.push(cp));
+        for (let i = list.length-1; i > 0; i--) { const j = Math.floor(Math.random()*(i+1)); [list[i],list[j]]=[list[j],list[i]]; }
+        setProblems(list.slice(0, numProblems));
+        setActiveTab("worksheet");
+      }, [selectedStds, customProblems, numProblems]);
+
+      const handlePrint = () => { if (problems) printSheet({ problems, studentName, date, grade, selectedStds, layout, includeAnswerKey }); };
+
+      const renderProblem = (p, i) => {
+        const [a,op,b] = p.q;
+        const isVert = layout === "vertical";
+        return (
+          <div key={i} style={{padding:isVert?"14px 6px":"11px 0",borderBottom:"1px dashed #e4dfd6",display:"flex",alignItems:"flex-start",gap:8}}>
+            <span style={{fontSize:10,color:"#bbb",minWidth:22,marginTop:4}}>{i+1}.</span>
+            {isVert && !p.isEquation && !p.isCustom ? (
+              <div style={{fontFamily:"'Courier Prime','Courier New',monospace",fontSize:18,lineHeight:1.6,textAlign:"right"}}>
+                <div>{a}</div>
+                <div style={{borderBottom:"2px solid #1a1a2e",paddingBottom:2}}>{op}&nbsp;{b}</div>
+                <div style={{color:"#ccc",fontSize:11,marginTop:4,letterSpacing:3}}>_______</div>
+              </div>
+            ) : (
+              <div style={{fontFamily:"'Courier Prime','Courier New',monospace",fontSize:17}}>
+                {a} <span style={{color:"#e17055",fontWeight:700}}>{op}</span> {b} = <span style={{color:"#ccc"}}>____</span>
+              </div>
+            )}
+            {p.isCustom && <span style={{fontSize:9,color:"#a29bfe",marginTop:5}}>✦</span>}
+          </div>
+        );
+      };
+
+      const formattedDate = date ? new Date(date+"T12:00:00").toLocaleDateString("en-US",{year:"numeric",month:"long",day:"numeric"}) : "";
+
+      const s = {
+        app:{height:"100vh",background:"#f5f1eb",display:"flex",flexDirection:"column",overflow:"hidden"},
+        topbar:{background:"#1a1a2e",color:"#f5f1eb",padding:"15px 28px",display:"flex",alignItems:"center",gap:14,flexShrink:0},
+        topbarTitle:{fontFamily:"'DM Serif Display',serif",fontSize:21},
+        topbarSub:{fontSize:10,letterSpacing:2,textTransform:"uppercase",color:"#5a5678",marginTop:2},
+        body:{display:"flex",flex:1,overflow:"hidden"},
+        sidebar:{width:300,background:"#fff",borderRight:"1px solid #ebe7e0",padding:"20px 18px",overflowY:"auto",display:"flex",flexDirection:"column",gap:20},
+        secLabel:{fontSize:9,letterSpacing:"2.5px",textTransform:"uppercase",color:"#bbb",marginBottom:9,display:"flex",alignItems:"center",gap:8},
+        gradeGrid:{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:6},
+        gradeBtn:(active,color)=>({borderRadius:9,border:`1.5px solid ${active?"transparent":"#ebe7e0"}`,background:active?color:"#f5f1eb",padding:"8px 4px",fontFamily:"'DM Serif Display',serif",fontSize:16,cursor:"pointer",textAlign:"center",color:active?"#fff":"#555",lineHeight:1.1}),
+        stdChip:(sel)=>({display:"flex",alignItems:"flex-start",gap:9,padding:"8px 10px",border:`1.5px solid ${sel?"#1a1a2e":"#ebe7e0"}`,borderRadius:9,cursor:"pointer",fontSize:12,background:sel?"#1a1a2e":"#f9f7f4",color:sel?"#f5f1eb":"#444",userSelect:"none",lineHeight:1.4}),
+        checkBox:{width:15,height:15,borderRadius:4,border:"1.5px solid currentColor",display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,flexShrink:0,marginTop:2},
+        input:{border:"1.5px solid #ebe7e0",borderRadius:7,padding:"8px 10px",fontFamily:"'DM Sans',sans-serif",fontSize:13,background:"#f5f1eb",outline:"none",color:"#1a1a2e",width:"100%"},
+        textarea:{border:"1.5px solid #ebe7e0",borderRadius:7,padding:"8px 10px",fontFamily:"'Courier Prime','Courier New',monospace",fontSize:12,background:"#f5f1eb",outline:"none",color:"#1a1a2e",resize:"vertical",minHeight:68,width:"100%"},
+        segWrap:{display:"flex",border:"1.5px solid #ebe7e0",borderRadius:8,overflow:"hidden"},
+        segBtn:(active)=>({flex:1,padding:"8px 0",border:"none",background:active?"#1a1a2e":"#f5f1eb",fontFamily:"'DM Sans',sans-serif",fontSize:12,cursor:"pointer",color:active?"#f5f1eb":"#777",fontWeight:active?600:400}),
+        genBtn:{width:"100%",padding:13,background:"#e17055",color:"#fff",border:"none",borderRadius:10,fontFamily:"'DM Serif Display',serif",fontSize:17,cursor:"pointer",marginTop:4},
+        content:{flex:1,padding:"26px 30px",overflowY:"auto",display:"flex",flexDirection:"column",gap:16},
+        printBtn:{padding:"8px 20px",background:"#1a1a2e",color:"#f5f1eb",border:"none",borderRadius:8,fontFamily:"'DM Sans',sans-serif",fontSize:12,cursor:"pointer",display:"flex",alignItems:"center",gap:7},
+        wsCard:{background:"#fff",border:"1px solid #ebe7e0",borderRadius:14,padding:"28px 30px",boxShadow:"0 2px 16px rgba(0,0,0,.04)"},
+        tab:(active)=>({padding:"7px 18px",background:active?"#1a1a2e":"none",border:"none",fontFamily:"'DM Sans',sans-serif",fontSize:12,cursor:"pointer",color:active?"#f5f1eb":"#999",borderRight:"1px solid #ebe7e0"}),
+      };
+
+      return (
+        <div style={s.app}>
+          <div style={s.topbar}>
+            <span style={{fontSize:24}}>📚</span>
+            <div>
+              <div style={s.topbarTitle}>Homeschool Math Worksheet Generator</div>
+              <div style={s.topbarSub}>Common Core Standards · K–8</div>
+            </div>
+          </div>
+          <div style={s.body}>
+            <aside style={s.sidebar}>
+              <div>
+                <div style={s.secLabel}>Grade Level</div>
+                <div style={s.gradeGrid}>
+                  {Object.entries(GRADE_STANDARDS).map(([g,info])=>(
+                    <button key={g} style={s.gradeBtn(grade===g,info.color)} onClick={()=>handleGradeChange(g)}>
+                      {g}<span style={{fontSize:8,fontFamily:"'DM Sans',sans-serif",color:grade===g?"rgba(255,255,255,0.7)":"#aaa",display:"block",marginTop:1}}>{g==="K"?"Kinder":"Grade"}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <div style={s.secLabel}>{gradeInfo.label} Standards</div>
+                <div style={{display:"flex",flexDirection:"column",gap:5}}>
+                  {gradeInfo.standards.map(std=>(
+                    <div key={std.id} style={s.stdChip(selectedStdIds.includes(std.id))} onClick={()=>toggleStd(std.id)}>
+                      <div style={s.checkBox}>{selectedStdIds.includes(std.id)?"✓":""}</div>
+                      <div>
+                        <span style={{fontSize:9,fontWeight:700,letterSpacing:".8px",opacity:.65,fontFamily:"'Courier Prime',monospace",display:"block",marginBottom:1}}>{std.id}</span>
+                        {std.label}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <div style={s.secLabel}>Student Info</div>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+                  <div style={{display:"flex",flexDirection:"column",gap:5}}>
+                    <label style={{fontSize:11,color:"#999"}}>Name</label>
+                    <input style={s.input} type="text" placeholder="Student name" value={studentName} onChange={e=>setStudentName(e.target.value)} />
+                  </div>
+                  <div style={{display:"flex",flexDirection:"column",gap:5}}>
+                    <label style={{fontSize:11,color:"#999"}}>Date</label>
+                    <input style={s.input} type="date" value={date} onChange={e=>setDate(e.target.value)} />
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <div style={s.secLabel}>Problem Layout</div>
+                <div style={s.segWrap}>
+                  <button style={s.segBtn(layout==="horizontal")} onClick={()=>setLayout("horizontal")}>⟶ Horizontal</button>
+                  <button style={s.segBtn(layout==="vertical")} onClick={()=>setLayout("vertical")}>↕ Vertical</button>
+                </div>
+              </div>
+
+              <div>
+                <div style={s.secLabel}>Number of Problems</div>
+                <div style={{display:"flex",alignItems:"center",gap:12}}>
+                  <input type="range" min={5} max={40} step={5} value={numProblems} onChange={e=>setNumProblems(Number(e.target.value))} style={{flex:1,height:4,accentColor:"#1a1a2e"}} />
+                  <span style={{fontFamily:"'Courier Prime',monospace",fontSize:18,fontWeight:700,minWidth:32,textAlign:"right"}}>{numProblems}</span>
+                </div>
+              </div>
+
+              <div>
+                <div style={s.secLabel}>Custom Problems</div>
+                <label style={{fontSize:11,color:"#999",display:"block",marginBottom:5}}>One per line (e.g. "12 + 7 = 19")</label>
+                <textarea style={s.textarea} placeholder={"12 + 7 = 19\n45 − 18 = 27\n6 × 8 = 48"} value={customInput} onChange={e=>setCustomInput(e.target.value)} />
+                <button style={{width:"100%",padding:8,border:"1.5px dashed #a29bfe",borderRadius:8,background:"transparent",color:"#6c5ce7",fontFamily:"'DM Sans',sans-serif",fontSize:12,cursor:"pointer",marginTop:4}} onClick={addCustomProblems}>+ Add to Pool</button>
+                {customProblems.length > 0 && (
+                  <div style={{display:"flex",flexDirection:"column",gap:4,maxHeight:110,overflowY:"auto",marginTop:6}}>
+                    {customProblems.map((cp,i)=>(
+                      <div key={i} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"5px 9px",background:"#edeaff",borderRadius:6,fontFamily:"'Courier Prime',monospace",fontSize:11,color:"#4a3f9a",gap:6}}>
+                        <span style={{flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{cp.q[0]} {cp.q[1]} {cp.q[2]} = {cp.ansStr}</span>
+                        <button onClick={()=>removeCustom(i)} style={{background:"none",border:"none",color:"#bbb",cursor:"pointer",fontSize:15,lineHeight:1,padding:0}}>×</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <div style={s.secLabel}>PDF Options</div>
+                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",fontSize:12,color:"#666",cursor:"pointer",userSelect:"none"}} onClick={()=>setIncludeAnswerKey(v=>!v)}>
+                  <span>Include answer key in PDF</span>
+                  <div style={{width:36,height:20,borderRadius:10,background:includeAnswerKey?"#1a1a2e":"#ddd",position:"relative",transition:"background .2s",flexShrink:0}}>
+                    <div style={{position:"absolute",top:3,left:includeAnswerKey?19:3,width:14,height:14,borderRadius:"50%",background:"#fff",transition:"left .2s",boxShadow:"0 1px 3px rgba(0,0,0,.2)"}}></div>
+                  </div>
+                </div>
+              </div>
+
+              <button style={s.genBtn} onClick={generate} disabled={!selectedStds.length && !customProblems.length}>✦ Generate Worksheet</button>
+            </aside>
+
+            <main style={s.content}>
+              {!problems ? (
+                <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:12,color:"#ccc",textAlign:"center",minHeight:300}}>
+                  <span style={{fontSize:50}}>🧮</span>
+                  <div style={{fontFamily:"'DM Serif Display',serif",fontSize:22}}>Choose a grade &amp; standards</div>
+                  <div style={{fontSize:13}}>Then click Generate to preview your worksheet</div>
+                </div>
+              ) : (
+                <>
+                  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:10}}>
+                    <div style={{display:"flex",border:"1.5px solid #ebe7e0",borderRadius:8,overflow:"hidden"}}>
+                      <button style={s.tab(activeTab==="worksheet")} onClick={()=>setActiveTab("worksheet")}>Worksheet</button>
+                      <button style={{...s.tab(activeTab==="answers"),borderRight:"none"}} onClick={()=>setActiveTab("answers")}>Answer Key</button>
+                    </div>
+                    <button style={s.printBtn} onClick={handlePrint}>🖨 Save / Print PDF</button>
+                  </div>
+
+                  <div style={s.wsCard}>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",borderBottom:"2.5px solid #1a1a2e",paddingBottom:12,marginBottom:22,gap:16,flexWrap:"wrap"}}>
+                      <div>
+                        <div style={{display:"inline-flex",alignItems:"center",gap:6,borderRadius:20,padding:"2px 12px 2px 8px",fontSize:10,fontWeight:600,letterSpacing:1,textTransform:"uppercase",marginBottom:4,background:gradeInfo.color+"22",color:gradeInfo.color}}>
+                          <span style={{width:7,height:7,borderRadius:"50%",background:gradeInfo.color,display:"inline-block"}}></span>
+                          Grade {grade} — {gradeInfo.label}
+                        </div>
+                        <div style={{fontFamily:"'DM Serif Display',serif",fontSize:24}}>Math Worksheet</div>
+                        <div style={{fontSize:10,color:"#aaa",marginTop:4,lineHeight:1.8,maxWidth:360}}>
+                          {selectedStds.map((st,i)=>(
+                            <span key={st.id}>
+                              <span style={{fontFamily:"'Courier Prime',monospace",fontWeight:700,fontSize:10}}>{st.id}</span>
+                              {" "}{st.label}{i<selectedStds.length-1?" · ":""}
+                            </span>
+                          ))}
+                          {customProblems.length>0&&<span style={{color:"#a29bfe",fontWeight:600}}> · ✦ {customProblems.length} custom</span>}
+                        </div>
+                      </div>
+                      <div style={{textAlign:"right",display:"flex",flexDirection:"column",gap:8,flexShrink:0}}>
+                        {[["Name",studentName||""],["Date",formattedDate],["Score",""]].map(([lbl,val])=>(
+                          <div key={lbl} style={{fontSize:12,display:"flex",alignItems:"center",gap:7,justifyContent:"flex-end"}}>
+                            <span style={{fontSize:9,textTransform:"uppercase",letterSpacing:1,color:"#aaa"}}>{lbl}</span>
+                            <span style={{borderBottom:"1px solid #ddd",minWidth:120,fontSize:12,paddingBottom:1,color:"#333"}}>{val}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {activeTab==="worksheet" ? (
+                      <div style={{display:"grid",gridTemplateColumns:layout==="vertical"?"repeat(4,1fr)":"1fr 1fr",gap:layout==="vertical"?"0 16px":"0 48px"}}>
+                        {problems.map((p,i)=>renderProblem(p,i))}
+                      </div>
+                    ) : (
+                      <>
+                        <div style={{marginTop:32,borderTop:"2.5px solid #1a1a2e",paddingTop:12,marginBottom:14,display:"flex",alignItems:"center",gap:10}}>
+                          <span style={{background:"#1a1a2e",color:"#f5f1eb",fontSize:9,padding:"3px 10px",letterSpacing:"1.5px",textTransform:"uppercase"}}>Answer Key</span>
+                          <span style={{fontFamily:"'DM Serif Display',serif",fontSize:18}}>Solutions</span>
+                        </div>
+                        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"5px 36px"}}>
+                          {problems.map((p,i)=>(
+                            <div key={i} style={{fontFamily:"'Courier Prime',monospace",fontSize:13,padding:"5px 0",color:"#1a6641",borderBottom:"1px dotted #e4dfd6"}}>
+                              <strong>{i+1}.</strong> {p.q[0]} {p.q[1]} {p.q[2]} = <em>{p.ansStr}</em>
+                            </div>
+                          ))}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                  <div style={{fontSize:11,color:"#bbb",textAlign:"center",padding:"6px 0"}}>Click Generate again for a fresh set · Custom problems marked ✦</div>
+                </>
+              )}
+            </main>
+          </div>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>
